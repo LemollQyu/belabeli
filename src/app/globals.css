@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "nunito";
+  src: url("/fonts/font-nunito/Nunito-VariableFont_wght.ttf") format("truetype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "nunitoBold";
+  src: url("/fonts/font-nunito/static/Nunito-Bold.ttf") format("truetype");
+  /* font-weight: 500; */
+}
+
+@font-face {
+  font-family: "nunitoLight";
+  src: url("/fonts/font-nunito/static/Nunito-ExtraLight.ttf") format("truetype");
+  /* font-weight: 500; */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Untuk Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
