@@ -4,6 +4,7 @@ import getEtalase from "@/api/etalase/getEtalase";
 import getEtalaseTanpaMerchantId from "@/api/etalase/getEtalaseTanpaMerchantId";
 import addEtalase from "@/api/etalase/postEtalase";
 import getCategory from "@/api/getCategory";
+import reqKirimInformasiProduct from "@/api/seller/kelola-produk/postAddInformasiProduct";
 import Popup from "@/app/components/seller/popup";
 import Header from "@/app/layouts/header";
 import LayoutUtama from "@/app/layouts/layout-utama";
@@ -28,6 +29,26 @@ type MerchantData = {
   updated_at: string; // Format ISO 8601 timestamp
 };
 
+interface Product {
+  brand: string;
+  created_at: string;
+  description: string;
+  gaya: string;
+  id: number;
+  informasi_penting: string;
+  jenis_barang: string;
+  keamanan_produk: string;
+  merchants_id: number;
+  name: string;
+  panduan_ukuran_img: string | null;
+  publish: boolean;
+  slug: string;
+  status_products_id: string;
+  updated_at: string;
+  users_id: string;
+  weight: string;
+}
+
 const TambahProduk = () => {
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
     {}
@@ -38,8 +59,8 @@ const TambahProduk = () => {
   const [dataAddEtalase, setDataAddEtalase] = useState<MerchantData>(null);
   const [chooseEtalase, setChooseEtalase] = useState<string>(null);
   const [fotoPanduanUkuran, setFotoPanduanUkuran] = useState(null);
-
-  const [dataCategory, setDataCategory] = useState(null);
+  const [dataUploadInformasiProduct, setDataUploadInformasiProduct] =
+    useState<Product>(null);
 
   // useEffect(() => {
   //   async function fetchData() {
@@ -65,6 +86,8 @@ const TambahProduk = () => {
     fetchData();
   }, []);
 
+  const [dataCategory, setDataCategory] = useState(null);
+
   useEffect(() => {
     async function fetchData() {
       const response = await getCategory();
@@ -75,7 +98,21 @@ const TambahProduk = () => {
     }
 
     fetchData();
-  }, [dataAddEtalase]);
+  }, []);
+
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedData, setSelectedData] = useState<number | null>(null); // Data final saat tombol "Pilih" diklik
+
+  const handleSelectCategory = (id: number) => {
+    setSelectedId(id); // Menyimpan pilihan sementara
+  };
+
+  const handleSubmitCategory = () => {
+    setSelectedData(selectedId); // Menyimpan pilihan saat tombol "Pilih" diklik
+    setIsDropdownOpen(false); // Menutup dropdown
+    console.log("Selected ID:", selectedId); // Menampilkan ID di console
+  };
 
   console.log("data etalase = ", dataEtalase);
   console.log("etalase yang dipilih = ", chooseEtalase);
@@ -166,7 +203,8 @@ const TambahProduk = () => {
   };
 
   // Handler untuk submit form
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
     const data = new FormData();
 
     // const formData = new FormData();
@@ -174,7 +212,9 @@ const TambahProduk = () => {
     // Tambahkan data ke FormData
     data.append("nama_produk", formData.namaProduk);
     data.append("merk", formData.merk);
-    data.append("kategori[]=", formData.kategori);
+    data.append("gaya", formData.gaya);
+    data.append("berat", formData.berat);
+    data.append("kategori[]=", `${selectedId}`);
     data.append("jenis_barang", formData.jenisBarang);
     data.append("keamanan_produk", formData.keamananProduk);
     data.append("etalase", chooseEtalase);
@@ -183,6 +223,16 @@ const TambahProduk = () => {
     data.append("informasi_penting", formData.informasiPenting);
 
     // console.log(data);
+
+    const response = await reqKirimInformasiProduct({ formData: data });
+
+    // console.log(response);
+    if (response.data?.code == 201) {
+      setDataUploadInformasiProduct(response.data?.data);
+      localStorage.setItem("productData", JSON.stringify(response.data?.data));
+
+      router.push("/seller/dashboard/kelola-produk/semua-produk/tambah-produk");
+    }
 
     for (const [key, value] of data.entries()) {
       console.log(`${key}:`, value);
@@ -199,7 +249,7 @@ const TambahProduk = () => {
       "Berat = ",
       formData.berat,
       "Kategori = ",
-      formData.kategori,
+      selectedId,
       "jenis barang = ",
       formData.jenisBarang,
       "keamanan barang = ",
@@ -215,6 +265,8 @@ const TambahProduk = () => {
     );
     // alert("Data berhasil disimpan! Cek console untuk data.");
   };
+
+  console.log("data upload informasi product = ", dataUploadInformasiProduct);
 
   const [isModalOpen, setModalOpen] = useState(false);
   const popupOptions = {
@@ -234,8 +286,8 @@ const TambahProduk = () => {
       "Otomotif dan Perkakas",
       "Ibu dan Bayi",
     ],
-    jenisBarang: ["Baru", "Bekas"],
-    keamananProduk: ["Produk Tidak Berbahaya", "Produk Mengandung Bahan Kimia"],
+    jenisBarang: ["baru", "bekas"],
+    keamananProduk: ["aman", "tidak aman"],
   };
 
   const [popup, setPopup] = useState({
@@ -454,31 +506,22 @@ const TambahProduk = () => {
           </div>
 
           {/* Kategori */}
-          <div>
-            <label className="block text-sm font-semibold pb-2 text-black">
-              (*) Kategori
-            </label>
-            <button
-              type="button"
-              onClick={() => setPopup({ isOpen: true, type: "kategori" })}
-              className="w-full border border-gray-300 rounded-md p-4 text-left  flex items-center justify-between focus:outline-none"
-            >
-              {formData.kategori || "Pilih Kategori"}
-              {/* SVG Icon */}
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="mr-2"
-              >
-                <path
-                  d="M8.00042 8.78077L11.3003 5.48096L12.2431 6.42376L8.00042 10.6664L3.75781 6.42376L4.70062 5.48096L8.00042 8.78077Z"
-                  fill="black"
-                />
-              </svg>
-            </button>
+          <label
+            htmlFor="namaProduk"
+            className="block text-sm font-semibold  text-black"
+          >
+            (*) Pilih Category
+          </label>
+          <div
+            className="border border-gray-300 rounded-lg p-4 flex justify-between items-center cursor-pointer"
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          >
+            <span>
+              {selectedData
+                ? dataCategory.find((o) => o.id === selectedData)?.name
+                : "Pilih Kategori"}
+            </span>
+            <span className="text-gray-500">&#9662;</span>
           </div>
 
           {/* Jenis Barang */}
@@ -973,7 +1016,7 @@ const TambahProduk = () => {
               onClick={
                 () => {
                   console.log("click");
-                  console.log("ini datanya = ", formData);
+                  // console.log("ini datanya = ", formData);
                 }
                 // router.push(
                 //   "/seller/dashboard/kelola-produk/semua-produk/tambah-produk"
@@ -987,69 +1030,46 @@ const TambahProduk = () => {
         </form>
       </div>
 
-      <div className="fixed inset-0 flex items-end justify-center z-50 font-nunito">
-        {/* Background Overlay */}
-        <div
-          className="fixed inset-0 bg-black opacity-50 z-40"
-          // onClick={onClose}
-        ></div>
-
-        {/* Popup Content */}
-        <div className="bg-white p-6 h-[350px] text-black rounded-t-[24px] w-full max-w-md shadow-lg relative z-50 overflow-hidden animate-slide-up flex flex-col">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-[16px] text-black font-semibold">title</h1>
-            <svg
-              // onClick={onClose}
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              className="cursor-pointer"
-            >
-              <path
-                d="M6.99976 5.46871L12.362 0.106445L13.8941 1.63851L8.53181 7.00076L13.8941 12.3629L12.362 13.895L6.99976 8.53281L1.63754 13.895L0.105469 12.3629L5.46771 7.00076L0.105469 1.63851L1.63754 0.106445L6.99976 5.46871Z"
-                fill="black"
-              />
-            </svg>
-          </div>
-
-          {/* Popup Content */}
-          <div className="flex-1 overflow-y-auto space-y-2">
-            {dataCategory?.map((option, index) => (
-              <label
-                key={index}
-                className="flex items-center space-x-3 p-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100"
+      {isDropdownOpen && (
+        <>
+          <div className="w-full h-screen bg-black opacity-40 fixed top-0 left-0 bottom-0 right-0 z-10"></div>
+          <div className="fixed z-20  bottom-0 left-1/2 -translate-x-1/2 w-[403px] mt-2 px-3 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
+            <div className="p-4 flex justify-between items-center">
+              <span className="text-lg font-semibold">Pilih Kategori</span>
+              <button
+                onClick={() => setIsDropdownOpen(false)}
+                className="text-gray-500 hover:text-black"
               >
-                <input
-                  type="radio"
-                  name="popup-option"
-                  value={option.name}
-                  // checked={selectedOption === option}
-                  // onChange={() => setSelectedOption(option)}
-                  className="form-radio text-emerald-500"
-                />
-                <span>{option.name}</span>
-              </label>
-            ))}
+                &times;
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto px-4">
+              {dataCategory?.map((option, index) => (
+                <label
+                  key={index}
+                  className="flex items-center space-x-2 py-2 cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    name="category"
+                    value={option.id}
+                    checked={selectedId === option.id}
+                    onChange={() => handleSelectCategory(option.id)}
+                    className="h-4 w-4 text-green-500 border-gray-300 focus:ring-green-500"
+                  />
+                  <span>{option.name}</span>
+                </label>
+              ))}
+            </div>
+            <button
+              onClick={handleSubmitCategory}
+              className="w-full bg-[#51d7b1] hover:bg-emerald-500 text-white py-2  rounded-lg  transition"
+            >
+              Pilih
+            </button>
           </div>
-
-          {/* Confirm Button */}
-          <button
-            // onClick={() => {
-            //   if (selectedOption) {
-            //     onSelect(selectedOption);
-            //     onClose();
-            //   }
-            // }}
-            className={`mt-4 w-full py-3 px-4 rounded-md font-semibold text-white bg-[#51d7b1] hover:bg-emerald-500`}
-            // disabled={!selectedOption}
-          >
-            Pilih
-          </button>
-        </div>
-      </div>
+        </>
+      )}
     </LayoutUtama>
   );
 };

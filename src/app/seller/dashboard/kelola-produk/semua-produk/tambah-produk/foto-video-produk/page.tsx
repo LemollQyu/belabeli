@@ -1,45 +1,140 @@
-'use client'
-import React, { useRef, useState } from 'react'
-import Header from '@/app/layouts/header'
-import LayoutUtama from '@/app/layouts/layout-utama'
-import { useRouter } from 'next/navigation'
+"use client";
+import React, { useEffect, useRef, useState } from "react";
+import Header from "@/app/layouts/header";
+import LayoutUtama from "@/app/layouts/layout-utama";
+import { useRouter } from "next/navigation";
+import informasiProduct from "@/api/seller/kelola-produk/getInformasiProduct";
+import reqKirimFotoVideoProduct from "@/api/seller/kelola-produk/postFotoVideoProduct";
+
+interface Product {
+  brand: string;
+  created_at: string;
+  description: string;
+  gaya: string;
+  id: number;
+  informasi_penting: string;
+  jenis_barang: string;
+  keamanan_produk: string;
+  merchants_id: number;
+  name: string;
+  panduan_ukuran_img: string | null;
+  publish: boolean;
+  slug: string;
+  status_products_id: string;
+  updated_at: string;
+  users_id: string;
+  weight: string;
+}
 
 const FotoAtauVideoPage: React.FC = () => {
-  const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [showUploadSection, setShowUploadSection] = useState(false) // Mengatur apakah tampilan berubah
-  const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null)
-  const productPhotoInputRef = useRef<HTMLInputElement | null>(null)
-  const [limitUpload, setLimitUpload] = useState<number>(5)
+  const router = useRouter();
+  const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
+  const [productPhotos, setProductPhotos] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const productPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [limitUpload, setLimitUpload] = useState<number>(5);
 
-  // Fungsi untuk menangani perubahan file
-  const handleProductPhotoChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0]
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      setProductPhotoFile(file)
+      setSelectedThumbnail(file);
     }
-  }
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setSelectedFile(file)
+  };
+
+  const handleProductPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && productPhotos.length < 5) {
+      setProductPhotos((prev) => [...prev, file]);
+      setLimitUpload((prev) => prev - 1);
     }
-  }
+  };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click()
-  }
+  const removeProductPhoto = (index: number) => {
+    setProductPhotos((prev) => prev.filter((_, i) => i !== index));
+    setLimitUpload((prev) => prev + 1);
+  };
+  // const fileInputRef = useRef<HTMLInputElement>(null);
+  // const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // const [showUploadSection, setShowUploadSection] = useState(false); // Mengatur apakah tampilan berubah
+  // const [productPhotoFile, setProductPhotoFile] = useState<File | null>(null);
+  // const productPhotoInputRef = useRef<HTMLInputElement | null>(null);
+  // const [limitUpload, setLimitUpload] = useState<number>(5);
 
-  const handleIconClick = () => {
-    setShowUploadSection(true)
-  }
+  // // Fungsi untuk menangani perubahan file
+  // const handleProductPhotoChange = (
+  //   event: React.ChangeEvent<HTMLInputElement>
+  // ) => {
+  //   const file = event.target.files?.[0];
+  //   if (file) {
+  //     setProductPhotoFile(file);
+  //   }
+  // };
+  // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0];
+  //   if (file) {
+  //     setSelectedFile(file);
+  //   }
+  // };
 
-  const handleButtonClick = () => {
-    setLimitUpload((prev) => (prev > 0 ? prev - 1 : prev))
-  }
+  const getStoredProduct = (): Product | null => {
+    const data = localStorage.getItem("productData");
+    return data ? JSON.parse(data) : null;
+  };
+
+  const [product, setProduct] = useState<Product | null>(null);
+
+  useEffect(() => {
+    const storedProduct = getStoredProduct();
+    if (storedProduct) {
+      setProduct(storedProduct);
+    }
+  }, []);
+
+  console.log("data yang lempar = ", product);
+
+  useEffect(() => {
+    async function fetchData() {
+      const response = await informasiProduct({ productId: product?.id });
+
+      if (response.data !== null) {
+        console.log(response);
+      }
+    }
+
+    fetchData();
+  }, [product]);
+
+  const handleUploadGambar = async () => {
+    // console.log("Thumbnail:", selectedThumbnail);
+    // console.log("Product Photos:", productPhotos);
+    // Membuat objek FormData
+    const formData = new FormData();
+
+    // Menambahkan thumbnail ke FormData
+    if (selectedThumbnail) {
+      formData.append("media[]", selectedThumbnail);
+    }
+
+    // Menambahkan foto produk ke FormData
+    productPhotos.forEach((photo, index) => {
+      formData.append(`media[${index + 1}]`, photo);
+    });
+
+    // Debugging FormData (opsional)
+    for (const [key, value] of formData.entries()) {
+      console.log(`${key}:`, value);
+    }
+
+    const response = await reqKirimFotoVideoProduct({
+      formData,
+      productId: product?.id,
+    });
+
+    console.log(response);
+    if (response.data?.code == 201) {
+      router.push("/seller/dashboard/kelola-produk/semua-produk/tambah-produk");
+    }
+  };
 
   return (
     <LayoutUtama>
@@ -63,206 +158,142 @@ const FotoAtauVideoPage: React.FC = () => {
           Foto/Video di Detail Produk
         </div>
         {/* Area Thumbnail Foto */}
-        <div className="border-2 border-gray-300 bg-white rounded-lg shadow-md p-3">
-          {/* Header Bagian Foto Thumbnail */}
-          <h2 className="text-md border-b-2 border-gray-300 p-2 font-semibold mb-4">
-            Foto Thumbnail
-          </h2>
-
-          {/* Bagian Foto Preview */}
-          <div className="rounded-lg p-2 flex justify-center items-center">
-            <div className="h-[300px] w-full border border-gray-300 bg-gray-300 rounded-lg flex justify-center items-center overflow-hidden shadow-md">
-              {/* Jika file sudah dipilih, tampilkan preview; jika belum, tampilkan ikon */}
-              {selectedFile ? (
-                <img
-                  src={URL.createObjectURL(selectedFile)}
-                  alt="Preview"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center p-2">
-                  {/* Area untuk ikon upload foto */}
-                  <div
-                    className="cursor-pointer flex justify-center items-center"
-                    onClick={triggerFileInput}
-                  >
-                    <span className="text-gray-500 text-4xl flex justify-center items-center">
-                      <svg
-                        width="80"
-                        height="80"
-                        viewBox="0 0 80 80"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M36.666 36.6665V23.3332H43.3327V36.6665H56.666V43.3332H43.3327V56.6665H36.666V43.3332H23.3327V36.6665H36.666ZM39.9994 73.3332C21.5898 73.3332 6.66602 58.4092 6.66602 39.9998C6.66602 21.5903 21.5898 6.6665 39.9994 6.6665C58.4087 6.6665 73.3327 21.5903 73.3327 39.9998C73.3327 58.4092 58.4087 73.3332 39.9994 73.3332ZM39.9994 66.6665C54.727 66.6665 66.666 54.7275 66.666 39.9998C66.666 25.2722 54.727 13.3332 39.9994 13.3332C25.2717 13.3332 13.3327 25.2722 13.3327 39.9998C13.3327 54.7275 25.2717 66.6665 39.9994 66.6665Z"
-                          fill="white"
-                        />
-                      </svg>
-                    </span>
-                  </div>
-
-                  {/* Input file yang tersembunyi */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-
-                  {/* Jika foto dipilih, tampilkan sebagai preview */}
-                  {selectedFile && (
-                    <div className="mt-4">
-                      <img
-                        src={URL.createObjectURL(selectedFile)}
-                        alt="Preview"
-                        className="h-[200px] w-[200px] object-cover rounded-lg shadow-md"
-                      />
-                    </div>
-                  )}
+        <div className="container mx-auto p-4 max-w-md">
+          {/* Thumbnail Section */}
+          <div className="mb-6 border-2 border-gray-300 bg-white rounded-lg shadow-md p-3">
+            <h2 className="text-md border-b-2 border-gray-300 p-2 font-semibold mb-4">
+              Foto Thumbnail
+            </h2>
+            <div className="relative border border-gray-300 rounded w-full h-44 flex items-center justify-center bg-gray-100">
+              {!selectedThumbnail ? (
+                <div
+                  className="cursor-pointer text-gray-400 text-4xl"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  +
                 </div>
+              ) : (
+                <img
+                  src={URL.createObjectURL(selectedThumbnail)}
+                  alt="Thumbnail Preview"
+                  className="w-full h-full object-cover rounded"
+                />
               )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleThumbnailChange}
+                ref={fileInputRef}
+                hidden
+              />
+            </div>
+            <div className="mt-4 border-t-2 border-gray-300"></div>
+            <div className="flex justify-end py-2">
+              <button
+                className="w-[150px] text-xs bg-[#51d7b1] text-white py-2 rounded-lg"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Ganti Foto
+              </button>
             </div>
           </div>
 
-          {/* Tombol Ganti Foto */}
-          <div className="mt-4 border-t-2 border-gray-300" />
-
-          <div className=" flex justify-end py-2">
-            <button
-              className="w-[150px] text-xs bg-[#51d7b1] text-white py-2 rounded-lg"
-              onClick={() => document.getElementById('fileInput')?.click()}
-            >
-              Ganti Foto
-            </button>
-          </div>
-
-          {/* Input File (disembunyikan tetapi aktif) */}
-          <input
-            type="file"
-            id="fileInput"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-        </div>
-
-        {(() => {
-          const items = []
-          for (let index = 0; index < 5 - limitUpload; index++) {
-            items.push(
-              // Bagian Upload Foto dan Preview
-              <div
-                key={index}
-                className="mt-6 border-2 border-gray-300 rounded-lg shadow-md p-3"
-              >
-                {/* Header Bagian Foto Produk */}
-                <h2 className="text-md border-b-2 border-gray-300 p-2 font-semibold mb-4">
-                  Foto Produk
-                </h2>
-
-                {/* Bagian Foto Preview */}
-                <div className="rounded-lg p-2 flex justify-center items-center">
-                  <div className="h-[300px] w-full border border-gray-300 bg-gray-300 rounded-lg flex justify-center items-center overflow-hidden shadow-md">
-                    {productPhotoFile ? (
-                      <img
-                        src={URL.createObjectURL(productPhotoFile)}
-                        alt="Preview"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-2">
-                        {/* Ikon Upload Foto */}
-                        <div
-                          className="cursor-pointer flex justify-center items-center"
-                          onClick={() => productPhotoInputRef.current?.click()}
-                        >
-                          <span className="text-gray-500 text-4xl flex justify-center items-center">
-                            <svg
-                              width="80"
-                              height="80"
-                              viewBox="0 0 80 80"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M36.666 36.6665V23.3332H43.3327V36.6665H56.666V43.3332H43.3327V56.6665H36.666V43.3332H23.3327V36.6665H36.666ZM39.9994 73.3332C21.5898 73.3332 6.66602 58.4092 6.66602 39.9998C6.66602 21.5903 21.5898 6.6665 39.9994 6.6665C58.4087 6.6665 73.3327 21.5903 73.3327 39.9998C73.3327 58.4092 58.4087 73.3332 39.9994 73.3332ZM39.9994 66.6665C54.727 66.6665 66.666 54.7275 66.666 39.9998C66.666 25.2722 54.727 13.3332 39.9994 13.3332C25.2717 13.3332 13.3327 25.2722 13.3327 39.9998C13.3327 54.7275 25.2717 66.6665 39.9994 66.6665Z"
-                                fill="white"
-                              />
-                            </svg>
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Tombol Ganti Foto */}
-                <div className="mt-4 border-t-2 border-gray-300" />
-                <div className="flex justify-end py-2">
-                  <button
-                    className="w-[150px] text-xs bg-[#51d7b1] text-white py-2 rounded-lg"
-                    onClick={() => productPhotoInputRef.current?.click()}
+          {/* Product Photos Section */}
+          <div className="mb-6 border-2 border-gray-300 bg-white rounded-lg shadow-md p-3">
+            <h2 className="text-md border-b-2 border-gray-300 p-2 font-semibold mb-4">
+              Foto Produk
+            </h2>
+            {productPhotos.map((photo, index) => (
+              <div key={index} className="relative mb-4">
+                <img
+                  src={URL.createObjectURL(photo)}
+                  alt={`Produk ${index + 1}`}
+                  className="w-full h-44 object-cover rounded border border-gray-300"
+                />
+                <button
+                  className="absolute top-2 right-2 text-white p-1 "
+                  onClick={() => removeProductPhoto(index)}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 11 12"
+                    fill="none"
                   >
-                    Ganti Foto
-                  </button>
+                    <rect
+                      x="0.25"
+                      y="1"
+                      width="10"
+                      height="10"
+                      rx="0.75"
+                      fill="#09CBCA"
+                    />
+                    <rect
+                      x="0.25"
+                      y="1"
+                      width="10"
+                      height="10"
+                      rx="0.75"
+                      stroke="#09CBCA"
+                      stroke-width="0.5"
+                    />
+                    <path
+                      d="M3.5 4.55H7.5V8.45C7.5 8.61569 7.38808 8.75 7.25 8.75H3.75C3.61193 8.75 3.5 8.61569 3.5 8.45V4.55ZM4.25 3.65V3.05C4.25 2.88432 4.36193 2.75 4.5 2.75H6.5C6.63808 2.75 6.75 2.88432 6.75 3.05V3.65H8V4.25H3V3.65H4.25ZM4.75 3.35V3.65H6.25V3.35H4.75ZM4.75 5.75V7.55H5.25V5.75H4.75ZM5.75 5.75V7.55H6.25V5.75H5.75Z"
+                      fill="#FDFDFD"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ))}
+            {limitUpload > 0 && (
+              <div className="relative border border-gray-300 rounded w-full h-44 flex items-center justify-center bg-gray-100">
+                <div
+                  className="cursor-pointer text-gray-400 text-4xl"
+                  onClick={() => productPhotoInputRef.current?.click()}
+                >
+                  +
                 </div>
-
-                {/* Input File (disembunyikan tetapi aktif) */}
                 <input
                   type="file"
-                  ref={productPhotoInputRef}
-                  className="hidden"
                   accept="image/*"
                   onChange={handleProductPhotoChange}
+                  ref={productPhotoInputRef}
+                  hidden
                 />
-              </div>,
-            )
-          }
-
-          return items
-        })()}
-
-        {limitUpload !== 0 ? (
-          <div
-            className="mt-6 flex justify-center items-center border border-gray-300 bg-white rounded-lg p-6 cursor-pointer hover:bg-gray-100 hover:shadow-lg transition"
-            onClick={handleButtonClick}
-          >
-            <span className="text-gray-500 text-4xl flex justify-center items-center">
-              <svg
-                width="34"
-                height="35"
-                viewBox="0 0 34 35"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M15.584 16.0835V7.5835H18.4173V16.0835H26.9173V18.9168H18.4173V27.4168H15.584V18.9168H7.08398V16.0835H15.584Z"
-                  fill="#A9A9A9"
-                />
-              </svg>
-            </span>
+              </div>
+            )}
+            {limitUpload > 0 && (
+              <div className="mt-4 border-t-2 border-gray-300"></div>
+            )}
+            {limitUpload > 0 && (
+              <div className="flex justify-end py-2">
+                <button
+                  className="w-[150px] text-xs bg-[#51d7b1] text-white py-2 rounded-lg"
+                  onClick={() => productPhotoInputRef.current?.click()}
+                >
+                  Tambah Foto Produk
+                </button>
+              </div>
+            )}
           </div>
-        ) : (
-          ''
-        )}
-        <button
-          onClick={() =>
-            router.push(
-              '/seller/dashboard/kelola-produk/semua-produk/tambah-produk',
-            )
-          }
-          className={`w-full max-w-[400px] mx-auto mt-6 py-3 text-white rounded-lg ${
-            selectedFile && productPhotoFile
-              ? 'bg-[#51d7b1] hover:bg-emerald-600'
-              : 'bg-gray-400 cursor-not-allowed'
-          }`}
-          disabled={!selectedFile || !productPhotoFile}
-        >
-          Simpan
-        </button>
+
+          {/* Save Button */}
+          <button
+            className={`w-full py-3 rounded-lg text-white ${
+              selectedThumbnail || productPhotos.length > 0
+                ? "bg-[#51d7b1] hover:bg-[#46be9c]"
+                : "bg-gray-300 cursor-not-allowed"
+            }`}
+            disabled={!selectedThumbnail && productPhotos.length === 0}
+            onClick={handleUploadGambar}
+          >
+            Simpan
+          </button>
+        </div>
       </div>
     </LayoutUtama>
-  )
-}
+  );
+};
 
-export default FotoAtauVideoPage
+export default FotoAtauVideoPage;
